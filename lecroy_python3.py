@@ -292,14 +292,16 @@ class LeCroy(object):
                                                                     len(dta)))        
         return struct.unpack('<{}h'.format(len(dta)//2), dta)
 
-    def getVertArrayReal(self, channel="C1", block="DAT1"):
+    def getVertFloats(self, channel="C1", block="DAT1"):
         """
         return the data in measured units in np.float64
-        Units will be defined in LeCroy.VERTUNIT
         channel : "C1" or "C2"
         block : "DAT1" (mostly), or "DAT2"
 
-        returns properly scaled numpy array of vertical value data
+        DAT1 is basic integer data block for storing measurements
+        DAT2 is used to hold the results of processing functions (extrema, FFT, etc.)
+
+        returns (VERTUNIT, array) : properly scaled numpy array of vertical value data
         """
         word_values = np.array(self.getDataWords(channel=channel, block=block))
         # get vertical offset
@@ -313,11 +315,37 @@ class LeCroy(object):
         # get vertical unit
         self.send('{}:INSPECT? "VERTUNIT"'.format(channel))
         r1, r2 = self.readAll()
-        self.VERTUNIT = r2.split("Unit Name = ")[-1].split('"\n')[0]
+        VERTUNIT = r2.split("Unit Name = ")[-1].split('"\n')[0]
         # value = VERT_GAIN * data - VERT_OFFSET
-        return VG*np.array(word_values, dtype=np.float64) - VOS
-        
-        
+        return (VERTUNIT, VG*np.array(word_values, dtype=np.float64) - VOS)
+
+    def getHorData(self, channel="C1"):
+        """
+        return the time vector data for the measurement for channel "channel"
+        for single sweep waveforms, for data point i, we have the horiz.
+        time from trigger being
+        t[i] = HORIZ_INTERVAL * i + HORIZ_OFFSET
+        in specified HORIZ_UNIT units
+
+        returns (HORUNIT, HORIZ_OFFSET, HORIZ_INTERVAL)
+
+        where
+        HORUNIT (string) is horizontal unit
+        HORIZ_OFFSET (double) is trigger offset for the first sweep of the trigger,
+                                 seconds b.w. the trig. and 1st data point
+        HORIZ_INTERVAL (float) is sampling interal for time domain waveforms
+        """
+        self.send('{}:INSPECT? "HORUNIT"'.format(channel))
+        r1, r2 = self.readAll()
+        HORUNIT = r2.split("Unit Name = ")[-1].split('"\n')[0]
+        self.send('{}:INSPECT? "HORIZ_OFFSET"'.format(channel))
+        r1, r2 = self.readAll()
+        HOS = float(r2.split(":")[-1].split('"\n')[0].strip(" "))
+        self.send('{}:INSPECT? "HORIZ_INTERVAL"'.format(channel))
+        r1, r2 = self.readAll()
+        HInV = float(r2.split(":")[-1].split('"\n')[0].strip(" "))
+
+        return (HORUNIT, HOS, HInV)
         
                           
         
@@ -350,7 +378,7 @@ if __name__=="__main__":
     pl.plot(dd)
     pl.show()
 
-    ee = lc.getVertArrayReal(channel="C1")
+    VU, ee = lc.getVertFloats(channel="C1")
     pl.figure()
     pl.plot(ee)
     pl.show()

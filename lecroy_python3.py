@@ -383,4 +383,5 @@ if __name__=="__main__":
     pl.plot(ee)
     pl.show()
 
-    
+    (HU, HOS, HInV) = lc.getHorData()
+    print(HU, HOS, HInV)

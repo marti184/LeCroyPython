@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 
-# The goal of this program is to try to replicate lecroy TCP communication
-# library by python for portability purposes
-# The original lecroy_tcp.c program was written by Steve D. Sharples in
-# 2003 under GNU GPL
-
 
 # Author: Martin Lints, martin.lints@ioc.ee
 # Year: 2019 (originally 2017 for python2)

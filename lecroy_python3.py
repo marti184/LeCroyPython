@@ -50,6 +50,25 @@ LECROY_DATA_FLAG	=	0x80
 
 
 class LeCroy(object):
+    """
+    Class for remote control and download of LeCroy oscilloscope data
+    tested for WaveSurfer 452
+
+    Methods
+    ------------
+    connect(IP) : after initializing to connect
+    disconnect() : to end communication
+
+    send(message) : message to device (commands, etc.)
+    readOld() : old implementation of read message back from device, not tested lately
+    readAll() : newer implementation, might not be robust, returns ascii string 
+    
+    getDataBytes(channel="C1", block="DAT1"): binary data download, 8-bit
+    getDataWords(channel="C1", block="DAT1"): binary data download, 16-bit
+    getVertFloats(channel="C1", block="DAT1"): unit, vertical data (downloads 16-bit binary)
+    getHorProperties(channel="C1") : returns (unit, offset, interval) in time dir. 
+
+    """
     MAX_TCP_CONNECT = 5    # time in s. to get a conn
     MAC_TCP_READ = 3 # time in s. to wait for the DSO to respond
     LECROY_SERVER_PORT = 1861 # as defined by LeCroy
@@ -93,7 +112,7 @@ class LeCroy(object):
 
     def send(self, message):
         """ Send a message through the socket to LeCroy oscilloscope. 
-        Sends message length in header frame adn then writes to the 
+        Sends message length in header frame and then writes to the 
         socket until all is received by the oscilloscope
         returns 0 if abnormal exit
         """
@@ -318,7 +337,7 @@ class LeCroy(object):
         # value = VERT_GAIN * data - VERT_OFFSET
         return (VERTUNIT, VG*np.array(word_values, dtype=np.float64) - VOS)
 
-    def getHorData(self, channel="C1"):
+    def getHorProperties(self, channel="C1"):
         """
         return the time vector data for the measurement for channel "channel"
         for single sweep waveforms, for data point i, we have the horiz.
@@ -383,5 +402,5 @@ if __name__=="__main__":
     pl.show()
 
     # get the horizontal data: unit, offset, interval
-    (HU, HOS, HInV) = lc.getHorData()
+    (HU, HOS, HInV) = lc.getHorProperties()
     print(HU, HOS, HInV)

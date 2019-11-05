@@ -352,36 +352,37 @@ class LeCroy(object):
 if __name__=="__main__":
     import pylab as pl
     MY_SCOPE_IP = "192.168.1.6"
-    
+
     lc = LeCroy()
     lc.connect(MY_SCOPE_IP, 10)
 
-    print('sending tdiv')
-    lc.send("TDIV 100 US")
+    print('sending idn') 
+    lc.send('*IDN?') # what are you?
+    print(lc.readAll()) # expecting response
 
-    print('sending idn')
-    lc.send('*IDN?')
-    print(lc.readAll())
+    print('sending tdiv')
+    lc.send("TDIV 100 US") # time division setting, no reply expected
+
 
     # put it into single shot mode
     lc.send("TRMD SINGLE") # TRIGGER MODE SINGLE : no response expected
 
 
     # get data
-
-    aa = lc.getDataBytes(channel="C1")
+    aa = lc.getDataBytes(channel="C1") # 8-bit (tuple)
     pl.plot(aa)
     pl.show()
     
-    dd = lc.getDataWords(channel="C1")
+    dd = lc.getDataWords(channel="C1") # 16-bit (tuple)
     pl.figure()
     pl.plot(dd)
     pl.show()
 
-    VU, ee = lc.getVertFloats(channel="C1")
+    VU, ee = lc.getVertFloats(channel="C1") # unit and np.array(float64) (from 16-bit)
     pl.figure()
     pl.plot(ee)
     pl.show()
 
+    # get the horizontal data: unit, offset, interval
     (HU, HOS, HInV) = lc.getHorData()
     print(HU, HOS, HInV)

@@ -6,7 +6,7 @@
 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
 
 # commands constructed according to LeCroy X-Stream Oscilloscope
@@ -31,7 +31,7 @@ from ctypes import c_ubyte, c_int, Structure, sizeof
 import time
 import numpy as np
 
-
+# c struct for header frame
 class LECROY_TCP_HEADER(Structure):
     """ defines LeCroy VICP protocol (TCP header) 
     _fields_ are byte, byte[3] and int (4-byte)
@@ -181,7 +181,7 @@ class LeCroy(object):
         return (eofflag, datalen)
         
             
-    def getHeader(self):
+    def __getHeader(self):
         """
         Receive a 8-byte header from socket LeCroy.s
         translate it and return the (eofflag, datalen)
@@ -199,19 +199,21 @@ class LeCroy(object):
         """
         dtstr = ""
         while True:
-            flg, lnt = self.getHeader() # find how 
+            flg, lnt = self.__getHeader() # find how 
             dtstr += self.s.recv(lnt).decode('ascii') # gather data
             if flg != self.LECROY_DATA_FLAG: # data flag 0x80
                 break
         return flg, dtstr
 
 
-    def getDataBytes(self, channel="C2", block="DAT1"):
+    def getDataBytes(self, channel="C1", block="DAT1"):
         """
         Simplest data retrieval, by byte values (low precision)
         Use only for verification (should work regardless of data packing)
         Channel can be "C1" or "C2", 
         data type "DAT1" for first block or "DAT2" for second (special, look at doc.)
+
+        returns list of values in 8-bit signed precision
         """
         self.send("CFMT DEF9,BYTE,BIN") # by 1 byte, binary
         # gets all the data of specified block on specified channel (waveform)
@@ -220,7 +222,7 @@ class LeCroy(object):
         dta = b""
         while True:
             dta1 = b""
-            flg, aln = self.getHeader()
+            flg, aln = self.__getHeader()
             if flg != self.LECROY_DATA_FLAG:
                 en = self.s.recv(aln)
                 if en != b'\n':
@@ -235,16 +237,21 @@ class LeCroy(object):
         return aa
 
     
-    def getDataWords(self):
+    def getDataWords(self, channel="C1", block="DAT1"):
         """
         return data in tuple of word values (-32768 to 32767)
         Reads header, and double checks:
         1: that the data stream ended correctly (!LECROY_DATA_FLAG flag with "\n" end),
         2: length of the byte vector matches the specified length in the header
+
+        channel : "C1" or "C2"
+        block : "DAT1" (mostly), or "DAT2"
+        
+        returns list of values (16-bit signed)
         """
 
         self.send("CFMT DEF9,WORD,BIN") # by 2-byte word
-        self.send("C2:WF? DAT1") # gets all the data on C2 waveform data
+        self.send("{}:WF? {}".format(channel, block)) # gets all the data on C2 waveform data
         self.send("CORD LO") #<LSB><MSB> 
         # rethead : first 10 bytes ascii string (like response)
         # followed by #9 xxxx xxxxx where x are 9 numbers to give len. of bin. blck
@@ -265,7 +272,7 @@ class LeCroy(object):
         dta = b"" # bytes data accumulator
         while True:
             dta1 = b"" # local accumulator (smaller chunks)
-            flg, alen = self.getHeader() # flg=LECROY_DATA_FLAG : more data coming
+            flg, alen = self.__getHeader() # flg=LECROY_DATA_FLAG : more data coming
             if flg != self.LECROY_DATA_FLAG:
                 # no more data expected
                 en = self.s.recv(alen)
@@ -285,22 +292,26 @@ class LeCroy(object):
                                                                     len(dta)))        
         return struct.unpack('<{}h'.format(len(dta)//2), dta)
 
-    def getArrayReal(self):
+    def getVertArrayReal(self, channel="C1", block="DAT1"):
         """
-        return the data in measured units
+        return the data in measured units in np.float64
         Units will be defined in LeCroy.VERTUNIT
+        channel : "C1" or "C2"
+        block : "DAT1" (mostly), or "DAT2"
+
+        returns properly scaled numpy array of vertical value data
         """
-        word_values = np.array(self.getDataWords())
+        word_values = np.array(self.getDataWords(channel=channel, block=block))
         # get vertical offset
-        self.send('C2:INSPECT? "VERTICAL_OFFSET"')
+        self.send('{}:INSPECT? "VERTICAL_OFFSET"'.format(channel))
         r1, r2 = self.readAll()
         VOS = float(r2.split(":")[-1].split('"\n')[0].strip(" "))
         # get vertical gain
-        self.send('C2:INSPECT? "VERTICAL_GAIN"')
+        self.send('{}:INSPECT? "VERTICAL_GAIN"'.format(channel))
         r1, r2 = self.readAll()
         VG = float(r2.split(":")[-1].split('"\n')[0].strip(" "))
         # get vertical unit
-        self.send('C2:INSPECT? "VERTUNIT"')
+        self.send('{}:INSPECT? "VERTUNIT"'.format(channel))
         r1, r2 = self.readAll()
         self.VERTUNIT = r2.split("Unit Name = ")[-1].split('"\n')[0]
         # value = VERT_GAIN * data - VERT_OFFSET
@@ -311,13 +322,11 @@ class LeCroy(object):
                           
         
 if __name__=="__main__":
-
-    OUR_SCOPE_IP = "192.168.1.6"
-    
     import pylab as pl
+    MY_SCOPE_IP = "192.168.1.6"
     
     lc = LeCroy()
-    lc.connect(OUR_SCOPE_IP, 10)
+    lc.connect(MY_SCOPE_IP, 10)
 
     print('sending tdiv')
     lc.send("TDIV 100 US")
@@ -332,16 +341,16 @@ if __name__=="__main__":
 
     # get data
 
-    aa = lc.getDataBytes()
+    aa = lc.getDataBytes(channel="C1")
     pl.plot(aa)
     pl.show()
     
-    dd = lc.getDataWords()
+    dd = lc.getDataWords(channel="C1")
     pl.figure()
     pl.plot(dd)
     pl.show()
 
-    ee = lc.getArrayReal()
+    ee = lc.getVertArrayReal(channel="C1")
     pl.figure()
     pl.plot(ee)
     pl.show()

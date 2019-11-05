@@ -61,7 +61,6 @@ class LeCroy(object):
 
     def __init__(self):
         self.CONNECTED = False
-        self.VERTUNIT = None # initialize to none
         # In future consider setting blocking connecting for socket
         #socket.socket.setblocking(False) # blocking by select
         #socket.socket.settimeout(SOCK_TIMEOUT)

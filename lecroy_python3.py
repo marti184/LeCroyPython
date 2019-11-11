@@ -65,7 +65,7 @@ class LeCroy(object):
     
     getDataBytes(channel="C1", block="DAT1"): binary data download, 8-bit
     getDataWords(channel="C1", block="DAT1"): binary data download, 16-bit
-    getVertFloats(channel="C1", block="DAT1"): unit, vertical data (downloads 16-bit binary)
+    getDataFloats(channel="C1", block="DAT1"): unit, vertical data (downloads 16-bit binary)
     getHorProperties(channel="C1") : returns (unit, offset, interval) in time dir. 
 
     """
@@ -310,7 +310,7 @@ class LeCroy(object):
                                                                     len(dta)))        
         return struct.unpack('<{}h'.format(len(dta)//2), dta)
 
-    def getVertFloats(self, channel="C1", block="DAT1"):
+    def getDataFloats(self, channel="C1", block="DAT1"):
         """
         return the data in measured units in np.float64
         channel : "C1" or "C2"
@@ -396,7 +396,7 @@ if __name__=="__main__":
     pl.plot(dd)
     pl.show()
 
-    VU, ee = lc.getVertFloats(channel="C1") # unit and np.array(float64) (from 16-bit)
+    VU, ee = lc.getDataFloats(channel="C1") # unit and np.array(float64) (from 16-bit)
     pl.figure()
     pl.plot(ee)
     pl.show()
